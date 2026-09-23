@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Restaurant POS & QR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #ea580c; 
+            --primary-light: #ffedd5; 
+        }
+
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            color: #1f2937;
+        }
+
+        /* Mode Specific Layouts */
+        body.staff-layout { overflow: hidden; }
+        body.customer-layout { overflow-x: hidden; overflow-y: auto; }
+
+        .theme-bg { background-color: var(--primary-color); color: white; }
+        .theme-text { color: var(--primary-color); }
+        .theme-border { border-color: var(--primary-color); }
+        
+        .theme-btn {
+            background-color: var(--primary-color);
+            color: white;
+            transition: all 0.2s;
+        }
+        .theme-btn:hover { opacity: 0.9; transform: translateY(-1px); shadow: lg;}
+
+        .theme-tab-active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        .theme-tab-inactive {
+            background-color: white;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+        }
+
+        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Animation for real-time items */
+        @keyframes highlightIn {
+            0% { background-color: #fef08a; }
+            100% { background-color: white; }
+        }
+        .new-order-highlight { animation: highlightIn 2s ease-out forwards; }
+    </style>
+</head>
+<body class="flex flex-col h-screen staff-layout" id="app-body">
+
+    <!-- Header -->
+    <header class="h-[72px] theme-bg shadow-md flex justify-between items-center px-4 md:px-6 z-20 shrink-0 sticky top-0">
+        <div class="flex items-center gap-3">
+            <img id="store-logo" src="https://placehold.co/100x100/ffffff/ea580c?text=POS" alt="Logo" class="h-10 w-10 md:h-12 md:w-12 object-cover rounded-full bg-white border-2 border-white shadow-sm">
+            <h1 class="text-xl md:text-2xl font-bold tracking-wide hidden md:block" id="store-name">My Restaurant POS</h1>
+            <h1 class="text-xl font-bold tracking-wide md:hidden" id="mobile-header-title">POS</h1>
+        </div>
+        
+        <div class="flex items-center gap-2 md:gap-4">
+            <!-- Language Switcher -->
+            <select id="lang-switcher" onchange="changeLanguage(this.value)" class="bg-white/20 text-white text-sm font-medium py-1.5 md:py-2 px-2 md:px-3 rounded-lg shadow-sm border-0 focus:ring-2 focus:ring-white cursor-pointer outline-none appearance-none">
+                <option value="th" class="text-gray-800">🇹🇭 ไทย</option>
+                <option value="en" class="text-gray-800">🇬🇧 English</option>
+                <option value="lo" class="text-gray-800">🇱🇦 ລາວ</option>
+                <option value="zh" class="text-gray-800">🇨🇳 中文</option>
+            </select>
+
+            <!-- Staff Only Actions -->
+            <div id="staff-actions" class="flex gap-2">
+                <button onclick="openQRModal()" class="bg-white text-gray-800 px-3 py-1.5 md:py-2 rounded-lg shadow hover:bg-gray-100 transition flex items-center justify-center gap-2 text-sm font-semibold">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+                    <span class="hidden md:inline" data-i18n="qrBtn">สร้าง QR</span>
+                </button>
+                <button onclick="openSettings()" class="bg-white text-gray-800 p-1.5 md:p-2 rounded-full shadow hover:bg-gray-100 transition flex items-center justify-center w-9 h-9 md:w-10 md:h-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex flex-col md:flex-row w-full flex-1 overflow-hidden" id="main-container">
+        <!-- Menu Section (Left on Desktop, Top on Mobile) -->
+        <section class="flex-1 h-full flex flex-col bg-gray-50 md:overflow-hidden relative">
+            <!-- Categories -->
+            <div class="p-3 md:p-4 border-b bg-white shadow-sm shrink-0 flex gap-2 overflow-x-auto custom-scroll" id="category-container">
+                <!-- Renders via JS -->
+            </div>
+            <!-- Products Grid -->
+            <div class="p-4 flex-1 overflow-y-auto custom-scroll" id="product-scroll-area">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4" id="product-grid">
+                    <!-- Renders via JS -->
+                </div>
+                <!-- Spacing for mobile cart bottom -->
+                <div class="h-24 md:hidden block"></div>
+            </div>
+        </section>
+
+        <!-- Sidebar / Cart Section (Right on Desktop, Bottom inline on Mobile) -->
+        <section id="sidebar-panel" class="w-full md:w-[400px] h-auto md:h-full bg-white shadow-[-5px_0_15px_rgba(0,0,0,0.03)] flex flex-col border-t md:border-l z-10 shrink-0">
+            
+            <!-- Staff Tabs (Hidden in Customer Mode) -->
+            <div id="staff-tabs" class="flex border-b bg-gray-100 p-1 gap-1 shrink-0">
+                <button onclick="switchTab('cart')" id="tab-btn-cart" class="flex-1 py-2 text-sm font-bold rounded-md bg-white shadow-sm text-gray-800 transition" data-i18n="walkInTab">สั่งหน้าร้าน</button>
+                <button onclick="switchTab('orders')" id="tab-btn-orders" class="flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:bg-white/50 transition relative" data-i18n="tableOrdersTab">
+                    ออเดอร์จากโต๊ะ
+                    <span id="order-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full hidden">0</span>
+                </button>
+            </div>
+
+            <!-- TAB CONTENT: Cart -->
+            <div id="tab-content-cart" class="flex flex-col flex-1 overflow-hidden h-full">
+                <!-- Customer Table Indicator -->
+                <div id="customer-table-indicator" class="hidden bg-orange-100 text-orange-800 px-4 py-2 text-center font-bold text-lg border-b border-orange-200">
+                    <span data-i18n="tableLabel">โต๊ะ</span>: <span id="display-table-num"></span>
+                </div>
+
+                <div class="p-3 md:p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                    <h2 class="text-lg md:text-xl font-bold text-gray-800" data-i18n="cartTitle">ออเดอร์ปัจจุบัน</h2>
+                    <span class="bg-gray-200 text-gray-700 text-xs md:text-sm font-semibold py-1 px-3 rounded-full" id="item-count">
+                        <span id="item-count-num">0</span> <span data-i18n="itemsUnit">รายการ</span>
+                    </span>
+                </div>
+
+                <div class="flex-1 overflow-y-auto custom-scroll p-3 md:p-4 space-y-3" id="cart-items">
+                    <div class="flex flex-col items-center justify-center h-full text-gray-400" id="empty-cart">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 md:h-16 md:w-16 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        <p data-i18n="emptyCart" class="text-sm md:text-base">ยังไม่มีสินค้าในตะกร้า</p>
+                    </div>
+                </div>
+
+                <div class="p-4 border-t bg-gray-50 shrink-0 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
+                    <div class="flex justify-between text-gray-600 mb-1 text-sm md:text-base">
+                        <span data-i18n="subtotal">ยอดรวม</span>
+                        <span id="subtotal">฿0.00</span>
+                    </div>
+                    <div class="flex justify-between text-gray-600 mb-3 text-sm md:text-base">
+                        <span data-i18n="tax">ภาษี (VAT 7%)</span>
+                        <span id="tax">฿0.00</span>
+                    </div>
+                    <div class="flex justify-between text-lg md:text-xl font-bold text-gray-800 mb-4 pt-2 border-t">
+                        <span data-i18n="total">ยอดสุทธิ</span>
+                        <span class="theme-text" id="total">฿0.00</span>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <button id="btn-checkout" onclick="processCheckout()" class="theme-btn w-full py-3 rounded-xl text-base md:text-lg font-bold shadow-md flex justify-center items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        <span data-i18n="checkoutBtn">ชำระเงิน</span>
+                    </button>
+                    
+                    <button id="btn-send-kitchen" onclick="sendOrderToKitchen()" class="theme-btn w-full py-3 rounded-xl text-base md:text-lg font-bold shadow-md justify-center items-center gap-2 hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                        <span data-i18n="kitchenBtn">ส่งออเดอร์เข้าครัว</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT: Incoming Orders (Staff Only) -->
+            <div id="tab-content-orders" class="hidden flex-col flex-1 overflow-hidden bg-gray-50 h-full">
+                <div class="p-3 border-b bg-white flex justify-between items-center shrink-0">
+                    <h2 class="text-base font-bold text-gray-800" data-i18n="pendingOrdersTitle">ออเดอร์รอดำเนินการ</h2>
+                    <span class="text-xs text-gray-500 flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Real-time
+                    </span>
+                </div>
+                <div class="flex-1 overflow-y-auto p-3 space-y-3 custom-scroll" id="incoming-orders-list">
+                    <!-- Renders via JS -->
+                    <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                        <p data-i18n="noPendingOrders">ไม่มีออเดอร์ใหม่</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center hidden z-[100] p-4 transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800" data-i18n="settingsTitle">ตั้งค่าระบบ</h2>
+                <button onclick="closeModal('settings-modal')" class="text-gray-400 hover:text-gray-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+            <div class="space-y-4 md:space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="themeColorLabel">สีหลักของระบบ</label>
+                    <div class="flex items-center gap-3">
+                        <input type="color" id="color-picker" class="h-10 w-16 p-0 border-0 rounded cursor-pointer" value="#ea580c">
+                        <span class="text-sm text-gray-500 font-mono" id="color-hex-display">#ea580c</span>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="storeLogoLabel">เปลี่ยนโลโก้ร้าน</label>
+                    <div class="flex items-center gap-4">
+                        <img id="preview-logo-settings" src="https://placehold.co/100x100/ffffff/ea580c?text=POS" alt="Preview" class="h-14 w-14 md:h-16 md:w-16 object-cover rounded-full border shadow-sm">
+                        <div class="flex-1">
+                            <input type="file" id="logo-upload" accept="image/*" class="block w-full text-xs md:text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-full file:border-0 file:text-xs md:file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="storeNameLabel">ชื่อร้าน</label>
+                    <input type="text" id="store-name-input" value="My Restaurant POS" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)]">
+                </div>
+            </div>
+            <div class="mt-6 md:mt-8 flex justify-end gap-3">
+                <button onclick="closeModal('settings-modal')" class="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50" data-i18n="cancelBtn">ยกเลิก</button>
+                <button onclick="saveSettings()" class="theme-btn px-4 py-2 text-sm rounded-lg font-medium shadow" data-i18n="saveBtn">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Generation Modal -->
+    <div id="qr-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center hidden z-[100] p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900" data-i18n="qrModalTitle">สร้าง QR Code สำหรับโต๊ะ</h3>
+                <button onclick="closeModal('qr-modal')" class="text-gray-400 hover:text-gray-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+            
+            <div class="mb-4 text-left">
+                <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="enterTableNum">ระบุหมายเลขโต๊ะ</label>
+                <div class="flex gap-2">
+                    <input type="text" id="qr-table-input" placeholder="e.g. 5, A1" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--primary-color)] outline-none">
+                    <button onclick="generateQR()" class="theme-btn px-4 py-2 rounded-lg font-bold text-sm" data-i18n="generateBtn">สร้าง</button>
+                </div>
+            </div>
+
+            <div id="qr-result-container" class="hidden flex-col items-center mt-6 p-4 bg-gray-50 rounded-xl border">
+                <p class="text-sm font-bold text-gray-700 mb-2"><span data-i18n="tableLabel">โต๊ะ</span>: <span id="qr-table-display" class="text-lg theme-text"></span></p>
+                <img id="qr-image" src="" alt="QR Code" class="w-48 h-48 bg-white p-2 rounded shadow-sm border">
+                <p class="text-xs text-gray-500 mt-3" data-i18n="qrInstruction">ให้ลูกค้าสแกนเพื่อเปิดเมนูสั่งอาหาร</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Message / Success Modal -->
+    <div id="msg-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-[110] p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center transform transition-transform scale-100">
+            <div id="msg-icon-success" class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-green-100 mb-4">
+                <svg class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+            </div>
+            <div id="msg-icon-error" class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4 hidden">
+                <svg class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2" id="msg-title">Success</h3>
+            <p class="text-gray-600 mb-6 text-sm" id="msg-desc">Operation completed.</p>
+            <button onclick="closeModal('msg-modal')" class="theme-btn w-full py-2 rounded-lg font-bold" data-i18n="closeBtn">ปิด / ตกลง</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment Variables Handling
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'restaurant-pos-app';
+        let firebaseConfig = {};
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        } catch (e) { console.warn("Missing Firebase config"); }
+
+        // State Variables
+        let app, auth, db, user;
+        let cart = [];
+        let pendingOrders = [];
+        let currentCategory = 'all';
+        let currentLang = 'th';
+        let customLogoDataUrl = null;
+        let isCustomerMode = false;
+        let tableNumber = null;
+
+        // Translation Dictionary
+        const translations = {
+            th: {
+                cartTitle: "ออเดอร์ปัจจุบัน", emptyCart: "ยังไม่มีสินค้าในตะกร้า", itemsUnit: "รายการ",
+                subtotal: "ยอดรวม", tax: "ภาษี (VAT 7%)", total: "ยอดสุทธิ", checkoutBtn: "ชำระเงิน",
+                kitchenBtn: "ส่งออเดอร์เข้าครัว", qrBtn: "สร้าง QR", walkInTab: "สั่งหน้าร้าน",
+                tableOrdersTab: "ออเดอร์จากโต๊ะ", pendingOrdersTitle: "ออเดอร์รอดำเนินการ",
+                noPendingOrders: "ไม่มีออเดอร์ใหม่", settingsTitle: "ตั้งค่าระบบ", themeColorLabel: "สีหลักของระบบ",
+                storeLogoLabel: "เปลี่ยนโลโก้ร้าน", storeNameLabel: "ชื่อร้าน", cancelBtn: "ยกเลิก",
+                saveBtn: "บันทึก", qrModalTitle: "สร้าง QR Code สำหรับโต๊ะ", enterTableNum: "ระบุหมายเลขโต๊ะ",
+                generateBtn: "สร้าง", qrInstruction: "ให้ลูกค้าสแกนเพื่อเปิดเมนูสั่งอาหาร", closeBtn: "ตกลง",
+                tableLabel: "โต๊ะ", successOrderTitle: "ส่งออเดอร์สำเร็จ!", successOrderDesc: "ออเดอร์ของโต๊ะ {table} ถูกส่งเข้าครัวแล้ว กรุณารอสักครู่",
+                successPayTitle: "ชำระเงินสำเร็จ", successPayDesc: "รับยอดเงิน ฿{amount} เรียบร้อยแล้ว",
+                serveBtn: "เสิร์ฟ / เสร็จสิ้น", errorTitle: "เกิดข้อผิดพลาด"
+            },
+            en: {
+                cartTitle: "Current Order", emptyCart: "Cart is empty", itemsUnit: "Items",
+                subtotal: "Subtotal", tax: "Tax (VAT 7%)", total: "Total", checkoutBtn: "Checkout",
+                kitchenBtn: "Send to Kitchen", qrBtn: "QR Code", walkInTab: "Walk-in POS",
+                tableOrdersTab: "Table Orders", pendingOrdersTitle: "Pending Orders",
+                noPendingOrders: "No new orders", settingsTitle: "Settings", themeColorLabel: "Theme Color",
+                storeLogoLabel: "Store Logo", storeNameLabel: "Store Name", cancelBtn: "Cancel",
+                saveBtn: "Save", qrModalTitle: "Generate Table QR", enterTableNum: "Enter Table Number",
+                generateBtn: "Generate", qrInstruction: "Customer scans this to order", closeBtn: "OK",
+                tableLabel: "Table", successOrderTitle: "Order Sent!", successOrderDesc: "Order for Table {table} has been sent to the kitchen.",
+                successPayTitle: "Payment Successful", successPayDesc: "Received ฿{amount}.",
+                serveBtn: "Mark Completed", errorTitle: "Error"
+            },
+            lo: {
+                cartTitle: "ອໍເດີປັດຈຸບັນ", emptyCart: "ບໍ່ມີສິນຄ້າໃນກະຕ່າ", itemsUnit: "ລາຍການ",
+                subtotal: "ຍອດລວມ", tax: "ອາກອນ (7%)", total: "ລວມທັງໝົດ", checkoutBtn: "ຊຳລະເງິນ",
+                kitchenBtn: "ສົ່ງເຂົ້າຄົວ", qrBtn: "ສ້າງ QR", walkInTab: "ໜ້າຮ້ານ",
+                tableOrdersTab: "ອໍເດີຈາກໂຕະ", pendingOrdersTitle: "ອໍເດີທີ່ລໍຖ້າ",
+                noPendingOrders: "ບໍ່ມີອໍເດີໃໝ່", settingsTitle: "ຕັ້ງຄ່າ", themeColorLabel: "ສີຫຼັກ",
+                storeLogoLabel: "ໂລໂກ້ຮ້ານ", storeNameLabel: "ຊື່ຮ້ານ", cancelBtn: "ຍົກເລີກ",
+                saveBtn: "ບັນທຶກ", qrModalTitle: "ສ້າງ QR ໂຕະ", enterTableNum: "ເບີໂຕະ",
+                generateBtn: "ສ້າງ", qrInstruction: "ໃຫ້ລູກຄ້າສະແກນເພື່ອສັ່ງອາຫານ", closeBtn: "ຕົກລົງ",
+                tableLabel: "ໂຕະ", successOrderTitle: "ສົ່ງອໍເດີສຳເລັດ!", successOrderDesc: "ອໍເດີໂຕະ {table} ສົ່ງເຂົ້າຄົວແລ້ວ.",
+                successPayTitle: "ຊຳລະເງິນສຳເລັດ", successPayDesc: "ຮັບເງິນ ฿{amount} ແລ້ວ.",
+                serveBtn: "ສຳເລັດ", errorTitle: "ຜິດພາດ"
+            },
+            zh: {
+                cartTitle: "当前订单", emptyCart: "购物车为空", itemsUnit: "件",
+                subtotal: "小计", tax: "税 (7%)", total: "总计", checkoutBtn: "结账",
+                kitchenBtn: "发送到厨房", qrBtn: "桌码", walkInTab: "前台点餐",
+                tableOrdersTab: "扫码订单", pendingOrdersTitle: "待处理订单",
+                noPendingOrders: "暂无新订单", settingsTitle: "设置", themeColorLabel: "主题色",
+                storeLogoLabel: "店铺图标", storeNameLabel: "店铺名称", cancelBtn: "取消",
+                saveBtn: "保存", qrModalTitle: "生成桌台二维码", enterTableNum: "输入桌号",
+                generateBtn: "生成", qrInstruction: "顾客扫码点餐", closeBtn: "确定",
+                tableLabel: "桌号", successOrderTitle: "订单已发送!", successOrderDesc: "桌号 {table} 的订单已发送厨房。",
+                successPayTitle: "支付成功", successPayDesc: "已收款 ฿{amount}。",
+                serveBtn: "完成订单", errorTitle: "错误"
+            }
+        };
+
+        // Mock Data
+        const categories = [
+            { id: 'all', names: { th: 'ทั้งหมด', en: 'All', lo: 'ທັງໝົດ', zh: '全部' } },
+            { id: 'burger', names: { th: 'อาหารคาว', en: 'Mains', lo: 'ອາຫານຫຼັກ', zh: '主食' } },
+            { id: 'pizza', names: { th: 'กินเล่น', en: 'Snacks', lo: 'ອາຫານວ່າງ', zh: '小吃' } },
+            { id: 'drink', names: { th: 'เครื่องดื่ม', en: 'Drinks', lo: 'ເຄື່ອງດື່ມ', zh: '饮料' } }
+        ];
+
+        const products = [
+            { id: 1, category: 'burger', price: 120, img: 'https://placehold.co/300x250/fef3c7/b45309?text=Burger', names: { th: 'คลาสสิค เบอร์เกอร์', en: 'Classic Burger', lo: 'ຄລາສສິກ ເບີເກີ', zh: '经典汉堡' } },
+            { id: 2, category: 'burger', price: 150, img: 'https://placehold.co/300x250/fef3c7/b45309?text=Cheese', names: { th: 'ดับเบิ้ลชีส', en: 'Double Cheese', lo: 'ດັບເບິນຊີດ', zh: '双层芝士' } },
+            { id: 3, category: 'pizza', price: 89, img: 'https://placehold.co/300x250/fee2e2/b91c1c?text=Fries', names: { th: 'เฟรนช์ฟรายส์', en: 'French Fries', lo: 'ມັນຝຣັ່ງຈືນ', zh: '炸薯条' } },
+            { id: 4, category: 'pizza', price: 129, img: 'https://placehold.co/300x250/fee2e2/b91c1c?text=Wings', names: { th: 'ปีกไก่ทอด', en: 'Fried Wings', lo: 'ປີກໄກ່ຈືນ', zh: '炸鸡翅' } },
+            { id: 5, category: 'drink', price: 45, img: 'https://placehold.co/300x250/e0e7ff/4338ca?text=Cola', names: { th: 'โคล่าเย็น', en: 'Iced Cola', lo: 'ໂຄລ່າເຢັນ', zh: '冰可乐' } },
+            { id: 6, category: 'drink', price: 60, img: 'https://placehold.co/300x250/e0e7ff/4338ca?text=Matcha', names: { th: 'มัทฉะลาเต้', en: 'Matcha Latte', lo: 'ມັດຊະລາເຕ້', zh: '抹茶拿铁' } }
+        ];
+
+        window.onload = () => {
+            parseUrlMode();
+            setupUIByMode();
+            renderCategories();
+            renderProducts();
+            applyTranslations();
+            initFirebase();
+            
+            // Expose globally for HTML onclick handlers
+            window.changeLanguage = changeLanguage;
+            window.addToCart = addToCart;
+            window.updateQty = updateQty;
+            window.processCheckout = processCheckout;
+            window.sendOrderToKitchen = sendOrderToKitchen;
+            window.switchTab = switchTab;
+            window.openSettings = () => { document.getElementById('settings-modal').classList.remove('hidden'); };
+            window.openQRModal = () => { document.getElementById('qr-modal').classList.remove('hidden'); };
+            window.closeModal = (id) => { document.getElementById(id).classList.add('hidden'); };
+            window.saveSettings = saveSettings;
+            window.generateQR = generateQR;
+            window.completeOrder = completeOrder;
+
+            document.getElementById('color-picker').addEventListener('input', (e) => {
+                document.getElementById('color-hex-display').textContent = e.target.value;
+            });
+            document.getElementById('logo-upload').addEventListener('change', handleLogoUpload);
+        };
+
+        function parseUrlMode() {
+            const params = new URLSearchParams(window.location.search);
+            tableNumber = params.get('table');
+            isCustomerMode = !!tableNumber;
+        }
+
+        function setupUIByMode() {
+            const body = document.getElementById('app-body');
+            const mainContainer = document.getElementById('main-container');
+            const sidebarPanel = document.getElementById('sidebar-panel');
+            
+            if (isCustomerMode) {
+                // Customer Mobile View
+                body.classList.remove('staff-layout');
+                body.classList.add('customer-layout');
+                mainContainer.classList.remove('flex-row', 'overflow-hidden');
+                mainContainer.classList.add('flex-col', 'overflow-visible');
+                
+                // Adjust heights for stacking
+                sidebarPanel.classList.remove('h-full');
+                sidebarPanel.classList.add('h-auto', 'border-t-2', 'border-gray-200');
+
+                // Hide Staff Elements
+                document.getElementById('staff-actions').classList.add('hidden');
+                document.getElementById('staff-tabs').classList.add('hidden');
+                document.getElementById('btn-checkout').classList.add('hidden');
+                
+                // Show Customer Elements
+                document.getElementById('btn-send-kitchen').classList.remove('hidden');
+                document.getElementById('btn-send-kitchen').classList.add('flex');
+                document.getElementById('customer-table-indicator').classList.remove('hidden');
+                document.getElementById('display-table-num').textContent = tableNumber;
+                document.getElementById('mobile-header-title').textContent = `Table ${tableNumber}`;
+            }
+        }
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            applyTranslations();
+            renderCategories();
+            renderProducts();
+            updateCart();
+            if(!isCustomerMode) renderIncomingOrders();
+        }
+
+        function applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[currentLang][key]) el.textContent = translations[currentLang][key];
+            });
+        }
+
+        function switchTab(tab) {
+            if(isCustomerMode) return;
+            const btnCart = document.getElementById('tab-btn-cart');
+            const btnOrders = document.getElementById('tab-btn-orders');
+            const contCart = document.getElementById('tab-content-cart');
+            const contOrders = document.getElementById('tab-content-orders');
+
+            if (tab === 'cart') {
+                btnCart.className = "flex-1 py-2 text-sm font-bold rounded-md bg-white shadow-sm text-gray-800 transition";
+                btnOrders.className = "flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:bg-white/50 transition relative";
+                contCart.classList.remove('hidden');
+                contCart.classList.add('flex');
+                contOrders.classList.add('hidden');
+                contOrders.classList.remove('flex');
+            } else {
+                btnOrders.className = "flex-1 py-2 text-sm font-bold rounded-md bg-white shadow-sm text-gray-800 transition relative";
+                btnCart.className = "flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:bg-white/50 transition";
+                contOrders.classList.remove('hidden');
+                contOrders.classList.add('flex');
+                contCart.classList.add('hidden');
+                contCart.classList.remove('flex');
+            }
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('category-container');
+            container.innerHTML = '';
+            categories.forEach(cat => {
+                const btn = document.createElement('button');
+                const isActive = cat.id === currentCategory;
+                btn.className = `px-4 md:px-5 py-1.5 md:py-2 text-sm md:text-base rounded-full font-medium whitespace-nowrap transition-colors ${isActive ? 'theme-tab-active shadow-sm' : 'theme-tab-inactive hover:bg-gray-50'}`;
+                btn.textContent = cat.names[currentLang];
+                btn.onclick = () => {
+                    currentCategory = cat.id;
+                    renderCategories(); 
+                    renderProducts();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderProducts() {
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
+            const filtered = currentCategory === 'all' ? products : products.filter(p => p.category === currentCategory);
+
+            filtered.forEach(product => {
+                const div = document.createElement('div');
+                div.className = 'bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition cursor-pointer flex flex-col h-full';
+                div.onclick = () => addToCart(product.id);
+                div.innerHTML = `
+                    <div class="h-28 md:h-32 w-full overflow-hidden bg-gray-100 shrink-0">
+                        <img src="${product.img}" alt="${product.names[currentLang]}" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-2 md:p-3 flex flex-col flex-1 justify-between">
+                        <h3 class="font-medium text-gray-800 text-xs md:text-sm line-clamp-2">${product.names[currentLang]}</h3>
+                        <div class="mt-2 flex justify-between items-center">
+                            <span class="theme-text font-bold text-sm md:text-base">฿${product.price}</span>
+                            <button class="bg-gray-100 text-gray-600 rounded-full w-7 h-7 md:w-8 md:h-8 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            const existingItem = cart.find(item => item.id === productId);
+            if (existingItem) existingItem.qty += 1;
+            else cart.push({ ...product, qty: 1 });
+            updateCart();
+            
+            // Mobile UX: Optional auto-scroll or feedback
+            if(isCustomerMode && window.innerWidth < 768) {
+                // Subtle feedback instead of forced scrolling
+                const btn = document.getElementById('btn-send-kitchen');
+                btn.classList.add('scale-105');
+                setTimeout(() => btn.classList.remove('scale-105'), 200);
+            }
+        }
+
+        function updateQty(productId, change, e) {
+            if(e) e.stopPropagation();
+            const item = cart.find(item => item.id === productId);
+            if (item) {
+                item.qty += change;
+                if (item.qty <= 0) cart = cart.filter(i => i.id !== productId);
+                updateCart();
+            }
+        }
+
+        function updateCart() {
+            const container = document.getElementById('cart-items');
+            const emptyEl = document.getElementById('empty-cart');
+            if (cart.length === 0) {
+                container.innerHTML = '';
+                container.appendChild(emptyEl);
+                emptyEl.classList.remove('hidden');
+                updateTotals(0, 0);
+                return;
+            }
+
+            container.innerHTML = '';
+            let subtotal = 0; let totalItems = 0;
+
+            cart.forEach(item => {
+                const itemTotal = item.price * item.qty;
+                subtotal += itemTotal; totalItems += item.qty;
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center bg-white border border-gray-100 p-2 md:p-3 rounded-xl shadow-sm';
+                div.innerHTML = `
+                    <div class="flex-1 pr-2">
+                        <h4 class="font-medium text-gray-800 text-xs md:text-sm">${item.names[currentLang]}</h4>
+                        <div class="text-gray-500 text-[10px] md:text-xs mt-0.5">฿${item.price}</div>
+                    </div>
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <div class="flex items-center border rounded-lg overflow-hidden bg-gray-50">
+                            <button onclick="updateQty(${item.id}, -1, event)" class="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-gray-600 hover:bg-gray-200">-</button>
+                            <span class="w-6 md:w-8 text-center text-xs md:text-sm font-medium">${item.qty}</span>
+                            <button onclick="updateQty(${item.id}, 1, event)" class="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-gray-600 hover:bg-gray-200">+</button>
+                        </div>
+                        <div class="w-12 md:w-14 text-right font-bold theme-text text-xs md:text-sm">฿${itemTotal}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            updateTotals(subtotal, totalItems);
+        }
+
+        function updateTotals(sub, count) {
+            const vat = sub * 0.07;
+            const grand = sub + vat;
+            document.getElementById('item-count-num').textContent = count;
+            document.getElementById('subtotal').textContent = `฿${sub.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('tax').textContent = `฿${vat.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('total').textContent = `฿${grand.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        }
+
+        async function initFirebase() {
+            if (Object.keys(firebaseConfig).length === 0) return;
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) await signInWithCustomToken(auth, token);
+                else await signInAnonymously(auth);
+                
+                user = auth.currentUser;
+                if(!isCustomerMode && user) startListeningOrders();
+                
+            } catch (error) { console.error("Firebase init failed:", error); }
+        }
+
+        function showModalMsg(titleKey, descText, isError = false) {
+            document.getElementById('msg-title').textContent = translations[currentLang][titleKey] || titleKey;
+            document.getElementById('msg-desc').textContent = descText;
+            document.getElementById('msg-icon-success').classList.toggle('hidden', isError);
+            document.getElementById('msg-icon-error').classList.toggle('hidden', !isError);
+            document.getElementById('msg-modal').classList.remove('hidden');
+        }
+
+        function processCheckout() {
+            if (cart.length === 0) return;
+            const totalStr = document.getElementById('total').textContent.replace('฿', '');
+            const msg = translations[currentLang].successPayDesc.replace('{amount}', totalStr);
+            showModalMsg('successPayTitle', msg, false);
+            cart = []; updateCart();
+        }
+
+        async function sendOrderToKitchen() {
+            if (cart.length === 0) return;
+            if (!db || !user) {
+                showModalMsg('errorTitle', "System connection error.", true); return;
+            }
+
+            const btn = document.getElementById('btn-send-kitchen');
+            btn.disabled = true; btn.style.opacity = '0.7';
+
+            let subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            
+            const orderData = {
+                table: tableNumber,
+                items: cart,
+                total: subtotal + (subtotal * 0.07),
+                status: 'pending',
+                timestamp: Date.now()
+            };
+
+            try {
+                const ref = collection(db, 'artifacts', appId, 'public', 'data', 'restaurant_orders');
+                await addDoc(ref, orderData);
+                cart = []; updateCart();
+                const msg = translations[currentLang].successOrderDesc.replace('{table}', tableNumber);
+                showModalMsg('successOrderTitle', msg, false);
+            } catch (error) {
+                console.error(error);
+                showModalMsg('errorTitle', "Could not send order to kitchen.", true);
+            } finally {
+                btn.disabled = false; btn.style.opacity = '1';
+            }
+        }
+
+        function startListeningOrders() {
+            const ref = collection(db, 'artifacts', appId, 'public', 'data', 'restaurant_orders');
+            onSnapshot(ref, (snapshot) => {
+                let fetched = [];
+                snapshot.forEach(d => fetched.push({ docId: d.id, ...d.data() }));
+                // Simple sort/filter in JS per strict rules
+                pendingOrders = fetched.filter(o => o.status === 'pending').sort((a,b) => b.timestamp - a.timestamp);
+                renderIncomingOrders();
+                
+                // Badge update with safety check
+                const badge = document.getElementById('order-badge');
+                if (badge) {
+                    if(pendingOrders.length > 0) {
+                        badge.textContent = pendingOrders.length;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            }, (err) => console.error(err));
+        }
+
+        function renderIncomingOrders() {
+            const container = document.getElementById('incoming-orders-list');
+            if (!container) return; // Safety check
+
+            if (pendingOrders.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
+                        <svg class="h-10 w-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                        <p class="text-sm" data-i18n="noPendingOrders">${translations[currentLang].noPendingOrders}</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            pendingOrders.forEach((order, index) => {
+                const time = new Date(order.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const div = document.createElement('div');
+                div.className = `bg-white p-3 rounded-xl border border-orange-200 shadow-sm relative ${index === 0 ? 'new-order-highlight' : ''}`;
+                
+                let itemsHtml = order.items.map(i => `<div class="flex justify-between text-xs text-gray-600 mt-1"><span>${i.qty}x ${i.names[currentLang] || i.names.th}</span><span>฿${(i.price*i.qty)}</span></div>`).join('');
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-2 pb-2 border-b">
+                        <span class="font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded text-sm">${translations[currentLang].tableLabel} ${order.table}</span>
+                        <span class="text-xs text-gray-500">${time}</span>
+                    </div>
+                    <div class="mb-3">${itemsHtml}</div>
+                    <div class="flex justify-between items-center pt-2">
+                        <span class="font-bold text-sm">฿${order.total.toLocaleString('en-US', {minimumFractionDigits:2})}</span>
+                        <button onclick="completeOrder('${order.docId}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm">${translations[currentLang].serveBtn}</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function completeOrder(docId) {
+            if(!db) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'restaurant_orders', docId);
+                await updateDoc(docRef, { status: 'completed' });
+            } catch(e) { console.error(e); }
+        }
+
+        function generateQR() {
+            const tableInput = document.getElementById('qr-table-input').value.trim();
+            if(!tableInput) return;
+            
+            const baseUrl = window.location.href.split('?')[0];
+            const qrUrl = `${baseUrl}?table=${encodeURIComponent(tableInput)}`;
+            
+            const qrImage = document.getElementById('qr-image');
+            qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}&color=ea580c`;
+            
+            document.getElementById('qr-table-display').textContent = tableInput;
+            document.getElementById('qr-result-container').classList.remove('hidden');
+            document.getElementById('qr-result-container').classList.add('flex');
+        }
+
+        // Settings Handlers
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    customLogoDataUrl = e.target.result;
+                    document.getElementById('preview-logo-settings').src = customLogoDataUrl;
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function saveSettings() {
+            const newColor = document.getElementById('color-picker').value;
+            const newStoreName = document.getElementById('store-name-input').value;
+            
+            document.documentElement.style.setProperty('--primary-color', newColor);
+            document.getElementById('store-name').textContent = newStoreName || "POS";
+            if(!isCustomerMode) document.getElementById('mobile-header-title').textContent = newStoreName || "POS";
+
+            if (customLogoDataUrl) document.getElementById('store-logo').src = customLogoDataUrl;
+            window.closeModal('settings-modal');
+        }
+    </script>
+</body>
+</html>
